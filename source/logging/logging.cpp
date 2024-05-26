@@ -1,4 +1,5 @@
 #include "../../include/socket/socket.h"
+#include <string>
 #include <fstream>
 #include <iostream>
 

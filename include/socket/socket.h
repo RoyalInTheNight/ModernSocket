@@ -2,11 +2,14 @@
 #define __SOCKET_H__
 
 #include <cstring>
-#include <netinet/in.h>
 #ifndef _WIN32
+#include <netinet/in.h>
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <sys/fcntl.h>
+#else
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 #endif // UNIX not supported int WIN32
 
 #include <cstdint>
@@ -16,16 +19,19 @@
 #include <string>
 
 namespace RITNet {
+    #ifndef _WIN32
     namespace unixTypes {
         typedef int32_t        socket_t;
         typedef sockaddr_un    header_t;
     }
+    #endif // _WIN32
 
     namespace inetTypes {
         typedef int32_t        socket_t;
         typedef sockaddr_in    header_t;
     }
 
+    #ifndef _WIN32
     struct UnixConnectionType {
     public:
         unixTypes::header_t header_;
@@ -47,6 +53,7 @@ namespace RITNet {
             headerSize_ = copy.headerSize_;
         }
     };
+    #endif // _WIN32
 
     struct InetConnectionType {
     public:
@@ -116,6 +123,92 @@ namespace RITNet {
         void logging(const std::string&);
     };
 
+    class InetSocketClient : public Logging {};
+    class InetSocketServer : public Logging {
+    private:
+        struct InetClient;
+
+        InetConnectionType *connectionData_;
+
+        ConnectionDefines::SocketServerStatus status_;
+        ConnectionDefines::SocketThreadStatus thread_;
+
+        std::vector<InetClient>          client_list_;
+
+        uint32_t CID_counter = 0;
+    
+    public:
+        InetSocketServer(const InetConnectionType *, const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+        InetSocketServer(const InetSocketServer&, const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+        InetSocketServer(const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+
+        [[nodiscard]] InetConnectionType            getInetConnectionType() const;
+        [[nodiscard]] ConnectionDefines::SocketServerStatus getInetStatus() const;
+        [[nodiscard]] ConnectionDefines::SocketThreadStatus getInetThread() const;
+        [[nodiscard]] ConnectionDefines::SocketLoggingType getInetLogging() const;
+
+        void setInetConnectionType(const InetConnectionType *);
+        void setInetSocketClient(const InetSocketServer&);
+        void setInetThreadStatus(const ConnectionDefines::SocketThreadStatus&);
+        void setInetLoggingType(const ConnectionDefines::SocketLoggingType&);
+
+        void socketInit();
+        void socketAccept();
+
+        int32_t readTo(const uint32_t, void *, const uint32_t);
+        int32_t readTo(const uint32_t, std::vector<char>&, const uint32_t);
+
+        int32_t readAll(void *, const uint32_t);
+        int32_t readAll(std::vector<char>&, const uint32_t);
+
+        void sendTo(const uint32_t, const void *, const uint32_t);
+        void sendTo(const uint32_t, const std::vector<char>&);
+
+        void sendAll(const void *, const uint32_t);
+        void sendAll(const std::vector<char>&);
+
+        void disconnectTo(const uint32_t);
+        void disconnectAll();
+
+        ~InetSocketServer();
+    };
+
+    struct InetSocketServer::InetClient : public Logging {
+    private:
+        ConnectionDefines::SocketClientStatus client_status_;
+
+        InetConnectionType *client_;
+
+        uint32_t CID;
+        uint8_t flag;
+
+    public:
+        InetClient(const InetConnectionType *, const uint32_t, const uint8_t, const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+        InetClient(const InetClient&, const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+        InetClient(const std::string& = ".inet_log", const ConnectionDefines::SocketLoggingType& = ConnectionDefines::SocketLoggingType::disableLogging);
+
+        [[nodiscard]] InetConnectionType                getConnectionType() const;
+        [[nodiscard]] ConnectionDefines::SocketClientStatus     getStatus() const;
+        [[nodiscard]] ConnectionDefines::SocketLoggingType getLoggingType() const;
+        [[nodiscard]] uint32_t                                     getCID() const;
+
+        void setConnectionType(const InetConnectionType *);
+        void setLoggingType(const ConnectionDefines::SocketLoggingType&);
+        void setCID(const uint32_t);
+        void setFlag(const uint8_t);
+
+        int32_t socketRead(void *, const uint32_t);
+        int32_t socketRead(std::vector<char>&, const uint32_t);
+
+        void socketSend(const void *, const uint32_t);
+        void socketSend(const std::vector<char>&, const uint32_t);
+
+        void socketDisconnect();
+
+        ~InetClient();
+    };
+
+    #ifndef _WIN32
     class UnixSocketClient : public Logging {
     private:
         UnixConnectionType *           connectionData_;
@@ -235,6 +328,7 @@ namespace RITNet {
 
         ~UnixClient();
     };
+    #endif // _WIN32
 }
 
 #endif // __SOCKET_H__
